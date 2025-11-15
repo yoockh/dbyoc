@@ -53,6 +53,17 @@ func (m *MongoDBClient) Update(filter interface{}, update interface{}) error {
 	return err
 }
 
+func (m *MongoDBClient) FindOne(filter interface{}) *mongo.SingleResult {
+	collection := m.client.Database(m.database).Collection(m.collection)
+	return collection.FindOne(context.Background(), filter)
+}
+
+func (m *MongoDBClient) Delete(filter interface{}) error {
+	collection := m.client.Database(m.database).Collection(m.collection)
+	_, err := collection.DeleteOne(context.Background(), filter)
+	return err
+}
+
 func (m *MongoDBClient) Close() error {
 	return m.client.Disconnect(context.Background())
 }
