@@ -1,77 +1,438 @@
-# DBYOC
-## Database Bring Your Own Connection
+# DBYOC - Database Bring Your Own Connection
 
-DBYOC is a Go module designed to simplify database connections by providing a unified interface for both SQL and NoSQL databases. It offers flexible configuration options, automatic retry and reconnect mechanisms, connection pooling, built-in migration support, integrated logging, and metrics tracking.
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![Go Version](https://img.shields.io/badge/Go-1.24+-00ADD8?style=flat&logo=go)](https://go.dev/)
 
-### Features
-- **Unified Database Connection**: Interact with various databases using a consistent interface.
-- **Flexible Configuration**: Load configurations from environment variables, JSON, or YAML files.
-- **Automatic Retry and Reconnect**: Handle transient errors gracefully with built-in retry logic.
-- **Connection Pooling**: Efficiently manage database connections to optimize resource usage.
-- **Built-in Migration**: Easily manage database schema changes with migration support.
-- **Integrated Logging**: Automatically log queries and errors for better observability.
-- **Metrics Tracking**: Monitor connection and query performance with built-in metrics.
+DBYOC is a Go module that simplifies database connections by providing a unified interface for both SQL and NoSQL databases. This module comes with flexible configuration, automatic retry mechanisms, connection pooling, migration support, logging, and metrics tracking.
 
-### Project Structure
+## Features
+
+- **Unified Interface**: Consistent interface for various database types
+- **Flexible Configuration**: Load configuration from environment variables, JSON, or YAML
+- **Auto Retry & Reconnect**: Handle transient errors with automatic retry logic
+- **Connection Pooling**: Efficient database connection management
+- **Built-in Migration**: Manage database schema changes easily
+- **Integrated Logging**: Automatic logging for queries and errors using Logrus
+- **Metrics Tracking**: Monitor connection and query performance
+
+## Installation
+
+```bash
+go get github.com/yoockh/dbyoc
+```
+
+## Quick Start
+
+### 1. Create Configuration File
+
+Create a `config.yaml` file:
+
+```yaml
+database:
+  url: "postgres://user:pass@localhost:5432/mydb?sslmode=disable"  # or use individual fields
+  # host: localhost
+  # port: 5432
+  # user: postgres
+  # password: secret
+  # database: mydb
+  # sslmode: disable
+  max_retries: 3
+  max_pool_size: 10
+
+mongodb:
+  uri: mongodb://localhost:27017
+  database: mydb
+  timeout: 30
+
+redis:
+  url: "redis://:password@localhost:6379/0"  # or use individual fields
+  # addr: localhost:6379
+  # password: ""
+  # db: 0
+
+logger:
+  level: info
+```
+
+### 2. PostgreSQL Connection
+
+```go
+package main
+
+import (
+    "log"
+    
+    "github.com/yoockh/dbyoc/config"
+    "github.com/yoockh/dbyoc/db/sql"
+    "github.com/yoockh/dbyoc/logger"
+)
+
+func main() {
+    // Load configuration
+    cfg, err := config.LoadConfig()
+    if err != nil {
+        log.Fatal("Failed to load config:", err)
+    }
+    
+    // Initialize logger
+    logger.Init(cfg.Logger.Level)
+    
+    // Connect to PostgreSQL
+    pgClient, err := sql.NewPostgresClient(cfg.Database)
+    if err != nil {
+        log.Fatal("Failed to connect:", err)
+    }
+    defer pgClient.Close()
+    
+    // Execute query
+    rows, err := pgClient.Query("SELECT id, name FROM users LIMIT 10")
+    if err != nil {
+        log.Fatal("Query failed:", err)
+    }
+    defer rows.Close()
+    
+    // Process results
+    for rows.Next() {
+        var id int
+        var name string
+        if err := rows.Scan(&id, &name); err != nil {
+            log.Fatal("Scan failed:", err)
+        }
+        logger.GetLogger().Infof("User: ID=%d, Name=%s", id, name)
+    }
+}
+```
+
+### 3. MongoDB Connection
+
+```go
+package main
+
+import (
+    "context"
+    "log"
+    
+    "github.com/yoockh/dbyoc/config"
+    "github.com/yoockh/dbyoc/db/nosql"
+    "github.com/yoockh/dbyoc/logger"
+    "go.mongodb.org/mongo-driver/bson"
+)
+
+func main() {
+    // Load configuration
+    cfg, err := config.LoadConfig()
+    if err != nil {
+        log.Fatal("Failed to load config:", err)
+    }
+    
+    // Initialize logger
+    logger.Init(cfg.Logger.Level)
+    
+    // Connect to MongoDB
+    mongoClient, err := nosql.NewMongoDBClient(
+        cfg.MongoDB.URI,
+        cfg.MongoDB.Database,
+        "users",
+    )
+    if err != nil {
+        log.Fatal("Failed to connect:", err)
+    }
+    defer mongoClient.Close()
+    
+    // Insert document
+    user := bson.M{"name": "John Doe", "email": "john@example.com"}
+    if err := mongoClient.Insert(user); err != nil {
+        log.Fatal("Insert failed:", err)
+    }
+    
+    // Find documents
+    cursor, err := mongoClient.Find(bson.M{})
+    if err != nil {
+        log.Fatal("Find failed:", err)
+    }
+    defer cursor.Close(context.Background())
+    
+    for cursor.Next(context.Background()) {
+        var result bson.M
+        if err := cursor.Decode(&result); err != nil {
+            log.Fatal("Decode failed:", err)
+        }
+        logger.GetLogger().Infof("Document: %+v", result)
+    }
+}
+```
+
+### 4. Redis Connection
+
+```go
+package main
+
+import (
+    "context"
+    "log"
+    "time"
+    
+    "github.com/yoockh/dbyoc/config"
+    "github.com/yoockh/dbyoc/db/nosql"
+    "github.com/yoockh/dbyoc/logger"
+)
+
+func main() {
+    // Load configuration
+    cfg, err := config.LoadConfig()
+    if err != nil {
+        log.Fatal("Failed to load config:", err)
+    }
+    
+    // Initialize logger
+    logger.Init(cfg.Logger.Level)
+    log := logger.GetLogger()
+    
+    // Connect to Redis
+    redisClient := nosql.NewRedisClient(
+        cfg.Redis.Addr,
+        cfg.Redis.Password,
+        cfg.Redis.DB,
+        log,
+    )
+    defer redisClient.Close()
+    
+    ctx := context.Background()
+    
+    // Ping connection
+    if err := redisClient.Ping(ctx); err != nil {
+        log.Fatal("Ping failed:", err)
+    }
+    
+    // Set value with expiration
+    if err := redisClient.Set(ctx, "user:1", "John Doe", 5*time.Minute); err != nil {
+        log.Fatal("Set failed:", err)
+    }
+    
+    // Get value
+    val, err := redisClient.Get(ctx, "user:1")
+    if err != nil {
+        log.Fatal("Get failed:", err)
+    }
+    
+    logger.GetLogger().Infof("Value: %s", val)
+}
+```
+
+### 5. Database Migration
+
+```go
+package main
+
+import (
+    "database/sql"
+    "fmt"
+    "log"
+    
+    "github.com/yoockh/dbyoc/config"
+    "github.com/yoockh/dbyoc/migration"
+    _ "github.com/lib/pq"
+)
+
+func main() {
+    cfg, err := config.LoadConfig()
+    if err != nil {
+        log.Fatal(err)
+    }
+    
+    // Open database connection
+    connStr := fmt.Sprintf("host=%s port=%d user=%s password=%s dbname=%s sslmode=%s",
+        cfg.Database.Host, cfg.Database.Port, cfg.Database.User, 
+        cfg.Database.Password, cfg.Database.Database, cfg.Database.SSLMode)
+    
+    db, err := sql.Open("postgres", connStr)
+    if err != nil {
+        log.Fatal(err)
+    }
+    defer db.Close()
+    
+    // Run migrations
+    migrator := migration.NewMigrator(db)
+    if err := migrator.Migrate("./migration/files"); err != nil {
+        log.Fatal("Migration failed:", err)
+    }
+    
+    log.Println("Migration completed successfully")
+}
+```
+
+Create migration file `migration/files/001_create_users_table.sql`:
+
+```sql
+CREATE TABLE IF NOT EXISTS users (
+    id SERIAL PRIMARY KEY,
+    name VARCHAR(255) NOT NULL,
+    email VARCHAR(255) UNIQUE NOT NULL,
+    created_at TIMESTAMP DEFAULT NOW()
+);
+```
+
+### 6. Metrics Monitoring
+
+```go
+package main
+
+import (
+    "log"
+    "time"
+    
+    "github.com/yoockh/dbyoc/metrics"
+)
+
+func main() {
+    // Create metrics collector
+    collector := metrics.NewMetricsCollector()
+    
+    // Track connections and queries
+    collector.IncrementConnectionCount()
+    collector.IncrementQueryCount()
+    
+    time.Sleep(100 * time.Millisecond)
+    
+    // Retrieve metrics
+    queryCount, connCount, uptime := collector.GetMetrics()
+    log.Printf("Queries: %d, Connections: %d, Uptime: %v", 
+        queryCount, connCount, uptime)
+}
+```
+
+## Project Structure
+
 ```
 dbyoc/
-├── config/                  # Configuration management
-│   ├── config.go            # Configuration structure and loading methods
-│   ├── loader.go            # Logic for loading configuration files
-│   └── types.go             # Types and constants for configuration
-│
-├── db/                      # Database connection and handling
-│   ├── client.go            # Unified DBClient interface
-│   ├── pool.go              # Connection pooling management
-│   ├── sql/                 # SQL specific implementations
-│   │   ├── postgres.go      # PostgreSQL connection logic
-│   │   ├── mysql.go         # MySQL connection logic
-│   │   └── common.go        # Common SQL functions and types
-│   └── nosql/               # NoSQL specific implementations
-│       ├── mongo.go         # MongoDB connection logic
-│       ├── redis.go         # Redis connection logic
-│       └── common.go        # Common NoSQL functions and types
-│
-├── migration/               # Database migration management
-│   ├── migration.go         # Main migration functionality
-│   ├── migrator.go          # Logic for executing migration scripts
-│   └── files/               # Directory for migration files
-│       └── .gitkeep         # Keep migration files directory in version control
-│
-├── logger/                  # Logging helper
-│   ├── logger.go            # Integrated logging functionality
-│   └── interface.go         # Logging interface and methods
-│
-├── metrics/                 # Metrics tracking
-│   ├── metrics.go           # Metrics functionality
-│   ├── collector.go         # Metrics data collection and processing
-│   └── types.go             # Types and constants for metrics
-│
-├── utils/                   # Utility functions
-│   ├── retry.go             # Retry logic and backoff strategies
-│   ├── backoff.go           # Exponential backoff functions
-│   └── helpers.go           # Various utility functions
-│
-├── example/                 # Example usage of the package
-│   ├── main.go              # General example implementation
-│   ├── postgres_example.go   # Example with PostgreSQL
-│   └── mongo_example.go      # Example with MongoDB
-│
-├── go.mod                   # Module definition and dependencies
-├── go.sum                   # Dependency checksums
-├── README.md                # Project documentation
-└── LICENSE                  # Licensing information
+├── config/          # Configuration management (Viper)
+├── db/             
+│   ├── sql/        # PostgreSQL, MySQL implementations
+│   └── nosql/      # MongoDB, Redis implementations
+├── migration/      # Database migration tools
+├── logger/         # Logging (Logrus)
+├── metrics/        # Metrics tracking
+└── utils/          # Retry logic, helpers
 ```
 
-### Installation
-To install the DBYOC module, use the following command:
+## Configuration
 
+DBYOC uses **Viper** for configuration management. You can load configuration from:
+
+- YAML file
+- JSON file
+- Environment variables (standard naming)
+
+### Using Config File (config.yaml)
+
+```yaml
+database:
+  url: "postgres://user:pass@localhost:5432/mydb?sslmode=disable"  # or use individual fields
+  # host: localhost
+  # port: 5432
+  # user: postgres
+  # password: secret
+  # database: mydb
+  # sslmode: disable
+  max_retries: 3
+  max_pool_size: 10
+
+mongodb:
+  uri: mongodb://localhost:27017
+  database: mydb
+  timeout: 30
+
+redis:
+  url: "redis://:password@localhost:6379/0"  # or use individual fields
+  # addr: localhost:6379
+  # password: ""
+  # db: 0
+
+logger:
+  level: info
 ```
-go get github.com/yourusername/dbyoc
+
+### Using Environment Variables
+
+Simple and standard naming:
+
+```bash
+# PostgreSQL - using URL
+export DATABASE_URL="postgres://user:pass@localhost:5432/mydb?sslmode=disable"
+
+# Or individual fields
+export DATABASE_HOST=localhost
+export DATABASE_PORT=5432
+export DATABASE_USER=postgres
+export DATABASE_PASSWORD=secret
+export DATABASE_NAME=mydb
+export DATABASE_SSLMODE=disable
+
+# MongoDB
+export MONGODB_URI="mongodb://localhost:27017"
+export MONGODB_DATABASE=mydb
+
+# Redis - using URL
+export REDIS_URL="redis://:password@localhost:6379/0"
+
+# Or individual fields
+export REDIS_ADDR=localhost:6379
+export REDIS_PASSWORD=secret
+export REDIS_DB=0
+
+# Logger
+export LOG_LEVEL=debug
 ```
 
-### Usage
-Refer to the examples in the `example` directory for practical implementations of the DBYOC package with different databases. 
+### Load Config in Code
 
-### License
-This project is licensed under the MIT License. See the LICENSE file for more details.
+```go
+// Load from config file (config.yaml)
+cfg, err := config.LoadConfig()
+
+// Or load purely from environment variables
+cfg, err := config.LoadFromEnv()
+```
+
+## External Dependencies
+
+DBYOC leverages proven, production-ready external libraries:
+
+| Library | Purpose | Repository |
+|---------|---------|------------|
+| **Logrus** | Structured logging | [github.com/sirupsen/logrus](https://github.com/sirupsen/logrus) |
+| **Viper** | Configuration management | [github.com/spf13/viper](https://github.com/spf13/viper) |
+| **Mapstructure** | Map to struct conversion | [github.com/mitchellh/mapstructure](https://github.com/mitchellh/mapstructure) |
+| **PostgreSQL Driver** | PostgreSQL connectivity | [github.com/lib/pq](https://github.com/lib/pq) |
+| **MySQL Driver** | MySQL connectivity | [github.com/go-sql-driver/mysql](https://github.com/go-sql-driver/mysql) |
+| **MongoDB Driver** | MongoDB connectivity | [go.mongodb.org/mongo-driver](https://github.com/mongodb/mongo-go-driver) |
+| **Redis Client** | Redis connectivity | [github.com/go-redis/redis](https://github.com/go-redis/redis) |
+
+## Contributing
+
+Contributions are welcome. To contribute:
+
+1. Fork the repository
+2. Create a feature branch (`git checkout -b feature/amazing-feature`)
+3. Commit your changes (`git commit -m 'Add amazing feature'`)
+4. Push to the branch (`git push origin feature/amazing-feature`)
+5. Open a Pull Request
+
+### Guidelines
+
+- Follow Go conventions and best practices
+- Add tests for new features
+- Update documentation as needed
+- Use Conventional Commits for commit messages
+
+## License
+
+Distributed under the MIT License. See `LICENSE` for more information.
+
+## Author
+
+**Aisiya Qutwatunnada**
+
+---
+
+**Note**: DBYOC is designed to simplify database connections, not complicate them. If you encounter any issues or have suggestions, please create an issue or pull request.

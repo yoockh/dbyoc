@@ -1,17 +1,18 @@
 package db
 
 import (
+	"context"
 	"database/sql"
 	"sync"
 	"time"
 )
 
 type DBPool struct {
-	pool       *sql.DB
-	maxOpen    int
-	maxIdle    int
+	pool        *sql.DB
+	maxOpen     int
+	maxIdle     int
 	idleTimeout time.Duration
-	mu         sync.Mutex
+	mu          sync.Mutex
 }
 
 func NewDBPool(dataSourceName string, maxOpen, maxIdle int, idleTimeout time.Duration) (*DBPool, error) {
@@ -25,9 +26,9 @@ func NewDBPool(dataSourceName string, maxOpen, maxIdle int, idleTimeout time.Dur
 	db.SetConnMaxLifetime(idleTimeout)
 
 	return &DBPool{
-		pool:       db,
-		maxOpen:    maxOpen,
-		maxIdle:    maxIdle,
+		pool:        db,
+		maxOpen:     maxOpen,
+		maxIdle:     maxIdle,
 		idleTimeout: idleTimeout,
 	}, nil
 }

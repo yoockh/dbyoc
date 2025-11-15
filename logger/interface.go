@@ -1,9 +1,8 @@
 package logger
 
 type Logger interface {
-    Info(msg string, fields map[string]interface{})
-    Warn(msg string, fields map[string]interface{})
-    Error(msg string, fields map[string]interface{})
-    Debug(msg string, fields map[string]interface{})
-    WithFields(fields map[string]interface{}) Logger
+	Info(msg string, args ...interface{})
+	Error(msg string, args ...interface{})
+	Warn(msg string, args ...interface{})
+	Debug(msg string, args ...interface{})
 }
