@@ -3,6 +3,8 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Go Version](https://img.shields.io/badge/Go-1.24+-00ADD8?style=flat&logo=go)](https://go.dev/)
 
+![dbyoc logo](assets/dbyoc.png)
+
 DBYOC is a Go module that simplifies database connections by providing a unified interface for both SQL and NoSQL databases. This module comes with flexible configuration, automatic retry mechanisms, connection pooling, migration support, logging, and metrics tracking.
 
 ## Features
