@@ -2,6 +2,7 @@ package utils
 
 import (
 	"errors"
+	"fmt"
 	"time"
 )
 
@@ -33,5 +34,5 @@ func Retry(operation func() error, config *RetryConfig) error {
 			time.Sleep(config.Delay)
 		}
 	}
-	return ErrMaxRetriesExceeded
+	return fmt.Errorf("%w: %v", ErrMaxRetriesExceeded, lastErr)
 }
