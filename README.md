@@ -429,7 +429,12 @@ Contributions are welcome. To contribute:
 - Use Conventional Commits for commit messages
 
 ## Changelog
-### v1.3.0 (Latest)
+### v1.3.5 (Latest)
+- Fixed module import resolution issues.
+- Improved graceful shutdown flow to avoid potential race conditions.
+- Corrected small inconsistencies in timeout handling and configuration usage.
+
+### v1.3.0
 - Server wrapper now supports using Echo directly as the HTTP handler (Echo implements `http.Handler`).
 - Introduced `StartWithSignals()` to:
   - Run the HTTP or HTTPS server.
