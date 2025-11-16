@@ -429,7 +429,15 @@ Contributions are welcome. To contribute:
 - Use Conventional Commits for commit messages
 
 ## Changelog
-### v1.2.5 (Latest)
+### v1.3.0 (Latest)
+- Server wrapper now supports using Echo directly as the HTTP handler (Echo implements `http.Handler`).
+- Introduced `StartWithSignals()` to:
+  - Run the HTTP or HTTPS server.
+  - Handle OS signals (SIGINT, SIGTERM).
+  - Perform graceful shutdown using `cfg.Server.ShutdownTimeout`.
+- Example usage added showing how to integrate Echo and the server wrapper in `main.go`.
+
+### v1.2.5
 [Implement HTTP server with graceful shutdown](https://github.com/yoockh/dbyoc/commit/a9ff77063da4b4115a61648100ffded4b35a8045)
 
 ### v1.2.0
