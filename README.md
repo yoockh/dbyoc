@@ -429,8 +429,10 @@ Contributions are welcome. To contribute:
 - Use Conventional Commits for commit messages
 
 ## Changelog
+### v1.2.5 (Latest)
+[Implement HTTP server with graceful shutdown](https://github.com/yoockh/dbyoc/commit/a9ff77063da4b4115a61648100ffded4b35a8045)
 
-### v1.2.0 (Latest)
+### v1.2.0
 - Config
   - LoadFromEnv now ensures environment variables are read when it runs standalone (viper.AutomaticEnv added).
   - Added Config.Validate() to enforce minimal required settings:
