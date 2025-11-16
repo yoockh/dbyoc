@@ -12,6 +12,7 @@ type Config struct {
 	MongoDB  MongoConfig    `mapstructure:"mongodb"`
 	Redis    RedisConfig    `mapstructure:"redis"`
 	Logger   LoggerConfig   `mapstructure:"logger"`
+	Server   ServerConfig   `mapstructure:"server"`
 }
 
 type DatabaseConfig struct {
@@ -44,6 +45,41 @@ type RedisConfig struct {
 
 type LoggerConfig struct {
 	Level string `mapstructure:"level"`
+}
+
+// ServerConfig holds HTTP server related settings.
+type ServerConfig struct {
+	// Either set Addr directly (host:port) or set Host + Port
+	Addr string `mapstructure:"addr"`
+	Host string `mapstructure:"host"`
+	Port int    `mapstructure:"port"`
+
+	// timeouts in seconds (simple int to keep config YAML/env friendly)
+	ReadTimeout     int  `mapstructure:"read_timeout"`
+	WriteTimeout    int  `mapstructure:"write_timeout"`
+	ShutdownTimeout int  `mapstructure:"shutdown_timeout"`
+	TLS             bool `mapstructure:"tls"`
+	CertFile        string `mapstructure:"cert_file"`
+	KeyFile         string `mapstructure:"key_file"`
+}
+
+// Address returns the effective listen address for the server.
+func (s *ServerConfig) Address() string {
+	if s == nil {
+		return ":8080"
+	}
+	if s.Addr != "" {
+		return s.Addr
+	}
+	host := s.Host
+	if host == "" {
+		host = "0.0.0.0"
+	}
+	port := s.Port
+	if port == 0 {
+		port = 8080
+	}
+	return fmt.Sprintf("%s:%d", host, port)
 }
 
 func LoadConfig(configPath ...string) (*Config, error) {
@@ -110,6 +146,17 @@ func LoadFromEnv() (*Config, error) {
 		Logger: LoggerConfig{
 			Level: viper.GetString("LOG_LEVEL"),
 		},
+		Server: ServerConfig{
+			Addr:            viper.GetString("SERVER_ADDR"),
+			Host:            viper.GetString("SERVER_HOST"),
+			Port:            viper.GetInt("SERVER_PORT"),
+			ReadTimeout:     viper.GetInt("SERVER_READ_TIMEOUT"),
+			WriteTimeout:    viper.GetInt("SERVER_WRITE_TIMEOUT"),
+			ShutdownTimeout: viper.GetInt("SERVER_SHUTDOWN_TIMEOUT"),
+			TLS:             viper.GetBool("SERVER_TLS"),
+			CertFile:        viper.GetString("SERVER_CERT_FILE"),
+			KeyFile:         viper.GetString("SERVER_KEY_FILE"),
+		},
 	}, nil
 }
 
@@ -149,6 +196,13 @@ func (c *Config) Validate() error {
 		// We return an error only if caller expects Redis — but since this function can't know that,
 		// we keep it lenient and do not return an error here. Uncomment the next line to enforce.
 		// return fmt.Errorf("redis.addr or redis.url must be provided")
+	}
+
+	// Server: if TLS enabled must provide cert and key
+	if c.Server.TLS {
+		if c.Server.CertFile == "" || c.Server.KeyFile == "" {
+			return fmt.Errorf("server.tls is enabled but cert_file or key_file is missing")
+		}
 	}
 
 	// Logger: set a sensible default externally; we don't treat empty log level as an error.
