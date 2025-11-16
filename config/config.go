@@ -57,12 +57,12 @@ func LoadConfig(configPath ...string) (*Config, error) {
 		viper.AddConfigPath("./config")
 	}
 
-	// REMOVE PREFIX - Auto bind to normal env vars
+	// Auto bind environment variables (so env vars can override file keys)
 	viper.AutomaticEnv()
 
 	// Read config file if exists
 	if err := viper.ReadInConfig(); err != nil {
-		// If no config file, that's okay, use env vars
+		// If no config file, that's okay — we'll rely on env vars
 		if _, ok := err.(viper.ConfigFileNotFoundError); !ok {
 			return nil, fmt.Errorf("failed to read config: %w", err)
 		}
@@ -76,8 +76,13 @@ func LoadConfig(configPath ...string) (*Config, error) {
 	return &config, nil
 }
 
-// LoadFromEnv loads config purely from environment variables
+// LoadFromEnv loads config purely from environment variables.
+//
+// NOTE: we call viper.AutomaticEnv() here to ensure viper reads env vars even if
+// LoadConfig wasn't called beforehand.
 func LoadFromEnv() (*Config, error) {
+	viper.AutomaticEnv()
+
 	return &Config{
 		Database: DatabaseConfig{
 			Type:        viper.GetString("DATABASE_TYPE"),
@@ -106,4 +111,46 @@ func LoadFromEnv() (*Config, error) {
 			Level: viper.GetString("LOG_LEVEL"),
 		},
 	}, nil
+}
+
+// Validate checks required configuration values and returns an error describing
+// any missing or inconsistent settings. This is intentionally conservative:
+// it enforces minimal requirements for the Database config (which most apps need),
+// and performs light checks for other subsystems.
+func (c *Config) Validate() error {
+	// Database.Type is important for choosing driver; require it.
+	if c.Database.Type == "" {
+		return fmt.Errorf("database.type is required")
+	}
+
+	// Database must have either a full URL or host+port+database set.
+	if c.Database.URL == "" {
+		if c.Database.Host == "" {
+			return fmt.Errorf("database.host is required when database.url is not provided")
+		}
+		if c.Database.Port == 0 {
+			return fmt.Errorf("database.port is required when database.url is not provided")
+		}
+		if c.Database.Database == "" {
+			// database name is required for most DB drivers
+			return fmt.Errorf("database.database (name) is required when database.url is not provided")
+		}
+	}
+
+	// MongoDB: if URI provided, database is recommended (but not strictly required).
+	if c.MongoDB.URI != "" && c.MongoDB.Database == "" {
+		// warn as error to force explicitness; change to non-fatal if you prefer
+		return fmt.Errorf("mongodb.database is recommended when MONGODB_URI is set")
+	}
+
+	// Redis: require at least one connection method
+	if c.Redis.Addr == "" && c.Redis.URL == "" {
+		// not fatal if your app doesn't use Redis; caller can decide whether Redis is required.
+		// We return an error only if caller expects Redis — but since this function can't know that,
+		// we keep it lenient and do not return an error here. Uncomment the next line to enforce.
+		// return fmt.Errorf("redis.addr or redis.url must be provided")
+	}
+
+	// Logger: set a sensible default externally; we don't treat empty log level as an error.
+	return nil
 }
