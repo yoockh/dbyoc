@@ -2,6 +2,7 @@
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Go Version](https://img.shields.io/badge/Go-1.24+-00ADD8?style=flat&logo=go)](https://go.dev/)
+[![Release](https://img.shields.io/badge/release-v1.2.0-blue.svg)]()
 
 ![dbyoc logo](assets/dbyoc.png)
 
@@ -426,6 +427,42 @@ Contributions are welcome. To contribute:
 - Add tests for new features
 - Update documentation as needed
 - Use Conventional Commits for commit messages
+
+## Changelog
+
+### v1.2.0 (Latest)
+- Config
+  - LoadFromEnv now ensures environment variables are read when it runs standalone (viper.AutomaticEnv added).
+  - Added Config.Validate() to enforce minimal required settings:
+    - `database.type` is required.
+    - Either `database.url`, or `database.host` + `database.port` + `database.database` is required.
+  - Kept existing environment variable naming (DATABASE_*, MONGODB_*, REDIS_*, LOG_LEVEL) for backward compatibility.
+  - Improved README/docs to clarify env names, YAML lookup paths, and recommended usage.
+- Documentation
+  - Root README and per-package READMEs updated for consistent style and full examples.
+  - Added a detailed Changelog section.
+- Utilities & Clients
+  - Clarified how to compose Retry and Backoff (examples in utils README).
+  - Ensured Redis client exposes Ping, Reconnect, Set/Get, RetryOperation behavior clearly.
+  - MongoDB client performs a connection check (Ping) on initialization and provides simple CRUD wrappers.
+- Stability & Tests
+  - Minor bug fixes and code tidying across packages.
+  - Added recommendations for unit tests around config loading and validation.
+- Upgrade notes:
+  - Call `cfg.Validate()` after loading configuration and handle validation errors before initializing clients.
+  - No breaking changes to public API or environment variable names.
+
+  ### v1.1.0
+  [Add FindOne and Delete methods to MongoDBClient](https://github.com/yoockh/dbyoc/commit/afa3c9e358d8714139c1cec4d03b21469e0061c5)
+
+  ### v1.0.0
+- **Unified Interface**: Consistent interface for various database types
+- **Flexible Configuration**: Load configuration from environment variables, JSON, or YAML
+- **Auto Retry & Reconnect**: Handle transient errors with automatic retry logic
+- **Connection Pooling**: Efficient database connection management
+- **Built-in Migration**: Manage database schema changes easily
+- **Integrated Logging**: Automatic logging for queries and errors using Logrus
+- **Metrics Tracking**: Monitor connection and query performance
 
 ## License
 
