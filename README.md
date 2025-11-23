@@ -40,20 +40,36 @@ import (
     "context"
     "log"
     
+    "github.com/yoockh/dbyoc/config"
     "github.com/yoockh/dbyoc/db/nosql"
+    "github.com/yoockh/dbyoc/logger"
     "go.mongodb.org/mongo-driver/bson"
 )
 
 func main() {
-    // ONE LINE!
-    client, err := nosql.QuickMongo("users")
+    // Load config from MONGO_URI
+    cfg, err := nosql.QuickMongo()
     if err != nil {
         log.Fatal(err)
+    }
+    
+    // Validate config
+    if err := cfg.Validate(); err != nil {
+        log.Fatal("Config validation error:", err)
+    }
+    
+    // Initialize logger
+    logger.Init(cfg.Logger.Level)
+    
+    // Connect with database and collection names
+    client, err := nosql.NewMongoDBClient(cfg.MongoDB.URI, "planetsdb", "planet")
+    if err != nil {
+        log.Fatal("Failed to connect to db:", err)
     }
     defer client.Close()
     
     // Insert
-    client.Insert(bson.M{"name": "John", "email": "john@example.com"})
+    client.Insert(bson.M{"name": "Earth", "type": "Terrestrial"})
     
     // Find
     cursor, _ := client.Find(bson.M{})
@@ -62,7 +78,7 @@ func main() {
     for cursor.Next(context.Background()) {
         var result bson.M
         cursor.Decode(&result)
-        log.Printf("User: %+v", result)
+        log.Printf("Planet: %+v", result)
     }
 }
 ```

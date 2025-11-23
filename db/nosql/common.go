@@ -2,6 +2,7 @@ package nosql
 
 import (
 	"fmt"
+	"os"
 
 	"github.com/yoockh/dbyoc/config"
 )
@@ -34,12 +35,28 @@ func (config *NoSQLConfig) Validate() error {
 	return nil
 }
 
-// QuickMongo creates MongoDB client from MONGO_URI env only
-func QuickMongo(collection string) (*MongoDBClient, error) {
-	cfg, err := config.QuickMongoConfig()
-	if err != nil {
-		return nil, err
+// QuickMongo loads MONGO_URI from env and returns config
+// Usage:
+//
+//	cfg, err := nosql.QuickMongo()
+//	if err != nil { log.Fatal(err) }
+//	client, err := nosql.NewMongoDBClient(cfg.MongoDB.URI, "mydb", "mycollection")
+func QuickMongo() (*config.Config, error) {
+	uri := os.Getenv("MONGO_URI")
+	if uri == "" {
+		uri = os.Getenv("MONGODB_URI")
 	}
 
-	return NewMongoDBClient(cfg.URI, cfg.Database, collection)
+	if uri == "" {
+		return nil, fmt.Errorf("MONGO_URI or MONGODB_URI environment variable is required")
+	}
+
+	return &config.Config{
+		MongoDB: config.MongoConfig{
+			URI: uri,
+		},
+		Logger: config.LoggerConfig{
+			Level: "info",
+		},
+	}, nil
 }
