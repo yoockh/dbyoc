@@ -92,3 +92,18 @@ func (r *RedisClient) Reconnect() error {
 	})
 	return nil
 }
+
+// QuickRedis creates Redis client from REDIS_URL env only
+func QuickRedis(logger ...*logrus.Logger) (*RedisClient, error) {
+	cfg, err := config.QuickRedisConfig()
+	if err != nil {
+		return nil, err
+	}
+
+	log := logrus.New()
+	if len(logger) > 0 {
+		log = logger[0]
+	}
+
+	return NewRedisClient(*cfg, log), nil
+}
