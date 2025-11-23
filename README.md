@@ -214,7 +214,7 @@ dbyoc/
 
 ## Changelog
 
-### v1.3.6 (Latest)
+### v1.3.7 (Latest)
 - Added Quick Start helpers: `QuickMongo()`, `QuickPostgres()`, `QuickRedis()`
 - MongoDB works with just `MONGO_URI` environment variable
 - PostgreSQL works with just `DATABASE_URL` environment variable
@@ -222,7 +222,7 @@ dbyoc/
 - No complex configuration needed for basic usage
 - Backward compatible with existing configuration methods
 
-### v1.3.5
+### v1.3.6
 - Fixed module import resolution issues
 - Improved graceful shutdown flow
 - Corrected timeout handling
